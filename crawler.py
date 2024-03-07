@@ -1,12 +1,12 @@
 from bs4 import BeautifulSoup
-from . import Counter
-from requests import get_request, read_request
+from collections import Counter
 from urllib.parse import urljoin
-from . import Queue
-from . import util
+from queue import Queue
+import requests
 import json
 import csv
 import re
+import util
 
 
 # Initial URL
@@ -57,10 +57,17 @@ def build_index(index: dict, soup, course_dict: dict):
 
     for block in course_blocks:
         # Extract title and descriptions
-        course_title = block.find("b", class_="card-title").text.strip()
-        description = " ".join(
-            [p.text.strip() for p in block.find_all("p", class_="card-text")]
-        )
+        course_title_element = block.find("b", class_="card-title")
+        if course_title_element:
+            course_title = course_title_element.text.strip()
+        else:
+            course_title = ""
+
+        description_elements = block.find_all("p", class_="card-text")
+        if description_elements:
+            description = " ".join([p.text.strip() for p in description_elements])
+        else:
+            description = ""
 
         # Combine title and description text
         combined_text = course_title + " " + description
@@ -79,7 +86,7 @@ def build_index(index: dict, soup, course_dict: dict):
             if word not in index:
                 index[word] = []
             # Add course ID to word
-            index[word].append(course_dict.get(course_title, "ID not found"))
+            index[word].append(course_dict.get(course_title, "Not found"))
 
     return index
 
@@ -108,20 +115,25 @@ def go(n: int, dictionary: str, output: str):
         if current_url in visited:
             continue
         visited.add(current_url)
-
         # HTTP request to url
-        request = get_request(current_url)
-        if request:
-            text = read_request(request)
+        request = requests.get(current_url)
+        if request.status_code == 200:
+            text = request.text
             soup = BeautifulSoup(text, "html5lib")
 
             for link in soup.find_all("a", href=True):
                 full_url = urljoin(current_url, link["href"])
-                if (
-                    util.is_url_ok_to_follow(full_url, DOMAIN)
-                    and full_url not in visited
-                ):
-                    queue.put(full_url)
+                if full_url not in visited:
+                    if util.is_url_ok_to_follow(full_url, DOMAIN):
+                        queue.put(full_url)
+                    else:
+                        # If the URL is not suitable to follow based on the domain criteria,
+                        # convert any relative URLs to absolute URLs and enqueue them if possible
+                        converted_url = util.convert_if_relative_url(
+                            current_url, full_url
+                        )
+                        if converted_url:
+                            queue.put(converted_url)
 
             index = build_index(index, soup, course_dict)
     # Write index to a CSV file
@@ -132,24 +144,4 @@ def go(n: int, dictionary: str, output: str):
             csvwriter.writerow([word, ", ".join(map(str, ids))])
 
 
-# Su indexador debe ser insensible a las mayúsculas y minúsculas. Por ejemplo, su indexador no
-# debe distinguir entre "Foo" y "foo". Recuerde que puede convertir una cadena, s, a minúsculas
-# utilizando la expresión s.lower().
-
-# Una palabra es una cadena de longitud mayora a 1, que comienza con una letra (A-Z o a-z) y
-# contiene sólo letras, dígitos (0-9) y/o un guion bajo (_). Elimine los signos de puntuación: !, . o :
-# al final de una palabra. Puede utilizar una expresión regular.
-
-# Algunas palabras ocurren con mucha frecuencia en el texto normal en español ("un", "y", "o") y
-# algunas ocurren con mucha frecuencia en el catálogo ("profesionales", "estudiantes", "curso",
-# etc). Identifique un listado de las palabras más frecuentes, que no aportan información, y que
-# su indexador no debe incluir en el índice.
-
-# Sí existen listas para un bloque de curso, su indexador debe mapear palabras en el título
-# principal y la descripción a todos los cursos en la lista. Además, debe mapear palabras que
-# aparecen sólo en la descripción de una lista al identificador de curso para esa lista, no todos los
-# identificadores para todos los cursos en la secuencia.
-# Una función útil, llamada util.find_sequence(tag), para trabajar con subsecuencias. Esta función
-# toma una etiqueta bs4 y comprueba las subsecuencias asociadas. Si existen subsecuencias, la
-# función devuelve una lista de los objetos de etiqueta div para la subsecuencia; de lo contrario,
-# devuelve una lista vacía.
+go(10, "test.json", "test.csv")
