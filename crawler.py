@@ -52,12 +52,14 @@ def go(n: int, dictionary: str, output: str):
                     and full_url not in visited
                 ):
                     queue.put(full_url)
-
+            # Extract course titles and descriptions
             for div in soup.find_all("div", class_="col"):
-                course_title_element = div.find("b", class_="card-title")
-                if course_title_element:
-                    course_title = course_title_element.text.strip()
+                course_title = div.find("b", class_="card-title").text.strip()
+                if course_title:
                     words = course_title.split()
+                    for desc in div.find_all("p", class_="card-text"):
+                        description = desc.text.strip()
+                        words += description.split()
                     for word in words:
                         word = word.lower()
                         if word not in index:
@@ -73,3 +75,27 @@ def go(n: int, dictionary: str, output: str):
         csvwriter.writerow(["Word", "Course IDs"])
         for word, ids in index.items():
             csvwriter.writerow([word, ", ".join(map(str, ids))])
+
+
+# ---- EXAMPLE ----
+# <div class="col">
+# <div class="card-body">
+# <a href="/errores-innatos-metabolismo" target="_blank">
+# <b class="card-title text-primary font-weight-bold">Errores innatos del
+# metabolismo de molécula pequeña</b> </a>
+# <p class="card-text mt-2 mb-0"><small class="text-muted"><i class="fas fa-clock
+# iconnn" aria-hidden="true"></i>
+# <b>Duración: </b>116 Horas</small></p>
+# <p class="card-text mb-0"><small class="text-muted">
+# <i class="fas fa-list-alt iconnn" aria-hidden="true"></i>
+# <b> Nivel: </b> Intermedio</small></p>
+# <p class="card-text mb-0"><small class="text-muted">
+# <i class="fas fa-calendar-alt iconnn" aria-hidden="true"></i>
+# <b> Fecha de inicio:
+# </b>Próximamente</small>
+# </p>
+# <p class="card-text"><small class="text-muted">
+# <i class="fas fa-coins iconnn" aria-hidden="true"></i>
+# <b> Precio: </b> $ 3.190.000</small>
+# </p>
+# </div>
