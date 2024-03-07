@@ -192,6 +192,6 @@ pyrightconfig.json
 .history
 .ionide
 # Ignore test files
-test.py
+test.*
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python
