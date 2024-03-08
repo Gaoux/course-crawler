@@ -25,7 +25,7 @@ import requests
 import json
 import csv
 import re
-import util
+import src.util as util
 
 
 START_URL = "https://educacionvirtual.javeriana.edu.co/nuestros-programas-nuevo"
@@ -203,4 +203,4 @@ def go(n: int, dictionary: str, output: str):
                 csvwriter.writerow([id, word])
 
 
-go(5, "test.json", "test.csv")
+go(5, "./data/test.json", "./data/test.csv")

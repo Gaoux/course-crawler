@@ -12,9 +12,11 @@ Functions:
 - find_sequence(tag): Finds sub-sequences associated with a BeautifulSoup tag.
 - extract_course_title(block, tag, class_): Extracts the title of a course from a BeautifulSoup element representing a course block.
 - extract_course_description(block, tag, class_): Extracts the description of a course from a BeautifulSoup element representing a course block.
+- load_index(csv_file): Load course index from a CSV file.
 """
 
 from urllib.parse import urlparse, urljoin
+import csv
 
 
 def is_absolute_url(url):
@@ -144,3 +146,24 @@ def extract_course_description(block, tag: str = "p", class_: str = "card-text")
         description = ""
 
     return description
+
+
+def load_index(csv_file: str):
+    """Load course index from a CSV file.
+
+    Args:
+        csv_file (str): Path to the CSV file containing the course index.
+
+    Returns:
+        dict: Course index dictionary mapping course IDs to lists of words.
+    """
+    index = {}
+    with open(csv_file, "r", encoding="utf-8") as file:
+        reader = csv.reader(file, delimiter="|")
+        next(reader)
+        for row in reader:
+            course_id, word = row
+            if course_id not in index:
+                index[course_id] = []
+            index[course_id].append(word)
+    return index
