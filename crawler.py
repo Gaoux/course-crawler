@@ -116,14 +116,15 @@ def build_index(index: dict, soup, course_dict: dict):
         words = [word for word in words if word not in common_words]
 
         # Get course id from the course dictionary file
-        course_id = course_dict.get(course_title, "Not found")
-        if course_id not in index:
-            index[course_id] = []
+        course_id = course_dict.get(course_title, "ID not found")
+        if course_id != "ID not found":
+            if course_id not in index:
+                index[course_id] = []
 
-        # Map each word to the course ID
-        for word in words:
-            if word not in index[course_id]:
-                index[course_id].append(word)
+            # Map each word to the course ID
+            for word in words:
+                if word not in index[course_id]:
+                    index[course_id].append(word)
 
         # Iterate over each subsequences in the block
         for sequence in sequences:
@@ -132,7 +133,9 @@ def build_index(index: dict, soup, course_dict: dict):
             if course_title == "":
                 continue
             else:
-                course_id = course_dict.get(course_title, "Not found")
+                course_id = course_dict.get(course_title, "ID not found")
+                if course_id == "ID not found":
+                    continue
                 if course_id not in index:
                     index[course_id] = []
             # Extract description of subsequence
@@ -194,10 +197,11 @@ def go(n: int, dictionary: str, output: str):
             index = build_index(index, soup, course_dict)
     # Write index to a CSV file
     with open(output, "w", newline="", encoding="utf-8") as csvfile:
-        csvwriter = csv.writer(csvfile)
+        csvwriter = csv.writer(csvfile, delimiter="|")
         csvwriter.writerow(["Course ID", "Word"])
-        for word, ids in index.items():
-            csvwriter.writerow([word, "|".join(map(str, ids))])
+        for id, words in index.items():
+            for word in words:
+                csvwriter.writerow([id, word])
 
 
 go(5, "test.json", "test.csv")
