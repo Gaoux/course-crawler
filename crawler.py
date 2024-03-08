@@ -12,25 +12,13 @@ import util
 # Initial URL
 START_URL = "https://educacionvirtual.javeriana.edu.co/nuestros-programas-nuevo"
 DOMAIN = "educacionvirtual.javeriana.edu.co"
-COMMON_WORDS = {
-    "hora",
-    "horas",
-    "duración",
-    "precio",
-    "de",
-    "la",
-    "al",
-    "el",
-    "en",
-    "su",
-    "con",
-}
+
 
 # Regular expression to identify words
 word_pattern = re.compile(r"\b[A-Za-zÁ-Úá-ú][A-Za-z0-9Á-Úá-ú_]+(?<![!:.])\b")
 
 
-def identify_common_words(course_blocks, threshold: int = 15):
+def identify_common_words(course_blocks, threshold: int = 10):
     """Identify common words from the list of words.
 
     Args:
@@ -41,6 +29,21 @@ def identify_common_words(course_blocks, threshold: int = 15):
         list: List of common words.
     """
     # Count the frequency of each word
+
+    COMMON_WORDS = {
+        "hora",
+        "horas",
+        "duración",
+        "precio",
+        "de",
+        "la",
+        "al",
+        "el",
+        "en",
+        "su",
+        "con",
+    }
+
     combined_text = ""
     for block in course_blocks:
         # Extract course title
@@ -87,31 +90,28 @@ def build_index(index: dict, soup, course_dict: dict):
     # Find all course blocks
     course_blocks = soup.find_all("div", class_="card-body")
 
-    # List of common words that do not provide useful information
-
     # Identify common words from 'words'
     common_words = identify_common_words(course_blocks)
 
+    # Iterate over each course block
     for block in course_blocks:
-        # Extract title and descriptions
-        course_title_element = block.find("b", class_="card-title")
-        if course_title_element:
-            course_title = course_title_element.text.strip()
-        else:
-            course_title = ""
+        # Implementing find_sequence to process sub-sequences
+        sequences = util.find_sequence(block)
 
-        description_elements = block.find_all("p", class_="card-text")
-        if description_elements:
-            description = " ".join([p.text.strip() for p in description_elements])
-        else:
-            description = ""
+        # Extract title
+        course_title = util.extract_course_title(block)
+        if course_title == "":
+            continue
 
-        # Combine title and description text
-        combined_text = course_title + " " + description
+        # Initialize combined text
+        combined_text = course_title
+        # Extract description if there are no sequences
+        if len(sequences) == 0:
+            description = util.extract_course_description(block)
+            combined_text += " " + description
 
         # Find all words in the combined text
         words = word_pattern.findall(combined_text.lower())
-
         # Filter out common words
         words = [word for word in words if word not in common_words]
 
@@ -125,6 +125,25 @@ def build_index(index: dict, soup, course_dict: dict):
             if word not in index[course_id]:
                 index[course_id].append(word)
 
+        # Iterate over each subsequences in the block
+        for sequence in sequences:
+            # Extract title of subsequence
+            course_title = util.extract_course_title(sequence)
+            if course_title == "":
+                continue
+            else:
+                course_id = course_dict.get(course_title, "Not found")
+                if course_id not in index:
+                    index[course_id] = []
+            # Extract description of subsequence
+            description = util.extract_course_description(sequence)
+            if description == "":
+                continue
+
+            sequence_words = word_pattern.findall(description.lower())
+            for word in sequence_words:
+                if word not in index[course_id]:
+                    index[course_id].append(word)
     return index
 
 
@@ -176,9 +195,9 @@ def go(n: int, dictionary: str, output: str):
     # Write index to a CSV file
     with open(output, "w", newline="", encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(["Course ID", "Words"])
+        csvwriter.writerow(["Course ID", "Word"])
         for word, ids in index.items():
-            csvwriter.writerow([word, ", ".join(map(str, ids))])
+            csvwriter.writerow([word, "|".join(map(str, ids))])
 
 
 go(5, "test.json", "test.csv")
