@@ -1,3 +1,19 @@
+"""Utility Functions for Web Scraping.
+
+This module provides various utility functions for web scraping tasks,
+including checking URL properties, extracting information from BeautifulSoup
+elements, and manipulating URLs.
+
+Functions:
+- is_absolute_url(url): Checks if a URL is absolute.
+- convert_if_relative_url(url1, url2): Converts a relative URL to an absolute URL if necessary.
+- remove_fragment(url): Removes the fragment part from the URL.
+- is_url_ok_to_follow(url, domain): Checks if a URL is suitable for following based on specified criteria.
+- find_sequence(tag): Finds sub-sequences associated with a BeautifulSoup tag.
+- extract_course_title(block, tag, class_): Extracts the title of a course from a BeautifulSoup element representing a course block.
+- extract_course_description(block, tag, class_): Extracts the description of a course from a BeautifulSoup element representing a course block.
+"""
+
 from urllib.parse import urlparse, urljoin
 
 
@@ -50,27 +66,22 @@ def is_url_ok_to_follow(url, domain):
     Returns:
         bool: True if the URL meets the criteria, False otherwise.
     """
-    # Check if the URL is absolute
+
     if not url.startswith("http"):
         return False
 
-    # Parse the URL
     parsed_url = urlparse(url)
 
-    # Check if the domain matches the specified domain
     if parsed_url.netloc != domain:
         return False
 
-    # Check if the URL contains "@" or "mailto:"
     if "@" in url or "mailto:" in url:
         return False
 
-    # Check if the URL ends with an extension or "html"
     path = parsed_url.path
     if path.endswith("/") or path.endswith(".html"):
         return True
 
-    # Check if the URL ends with a file name without an extension
     if "." not in path.split("/")[-1]:
         return True
 
@@ -86,7 +97,6 @@ def find_sequence(tag):
     Returns:
         list: List of BeautifulSoup objects for the sub-sequences, or an empty list if no sub-sequences are found.
     """
-    # Find sub-sequences associated with the tag
     sub_sequences = tag.find_all("div")
 
     return sub_sequences
@@ -103,10 +113,9 @@ def extract_course_title(block, tag: str = "b", class_: str = "card-title"):
     Returns:
         str: The title of the course.
     """
-    # Find the title element within the block
+
     course_title_element = block.find(tag, class_=class_)
 
-    # Extract the text of the title element and strip any leading/trailing whitespace
     if course_title_element:
         course_title = course_title_element.text.strip()
     else:
@@ -126,10 +135,9 @@ def extract_course_description(block, tag: str = "p", class_: str = "card-text")
     Returns:
         str: The description of the course.
     """
-    # Find all description elements within the block
+
     description_elements = block.find_all(tag, class_=class_)
 
-    # Extract the text of each description element, join them into a single string, and strip any leading/trailing whitespace
     if description_elements:
         description = " ".join([p.text.strip() for p in description_elements])
     else:

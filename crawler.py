@@ -1,3 +1,22 @@
+"""Course Catalog Indexing System.urls_to_visit
+
+This module is designed to crawl a specified website, extract information about courses,
+and build an index mapping words to course IDs based on the course titles and descriptions.
+The index is then saved to a CSV file. This system is specifically tailored for the course
+catalog of the Javeriana University's virtual education programs but can be adapted for similar
+websites.
+
+Typical usage example:
+
+  # Define the number of pages to crawl, the dictionary JSON file, and the output CSV file name.
+  num_pages_to_crawl = 5
+  dictionary_file = "course_dictionary.json"
+  output_file = "course_index.csv"
+  
+  # Run the indexing process.
+  go(num_pages_to_crawl, dictionary_file, output_file)
+"""
+
 from bs4 import BeautifulSoup
 from collections import Counter
 from urllib.parse import urljoin
@@ -9,12 +28,10 @@ import re
 import util
 
 
-# Initial URL
 START_URL = "https://educacionvirtual.javeriana.edu.co/nuestros-programas-nuevo"
 DOMAIN = "educacionvirtual.javeriana.edu.co"
 
 
-# Regular expression to identify words
 word_pattern = re.compile(r"\b[A-Za-zÁ-Úá-ú][A-Za-z0-9Á-Úá-ú_]+(?<![!:.])\b")
 
 
@@ -28,7 +45,6 @@ def identify_common_words(course_blocks, threshold: int = 10):
     Returns:
         list: List of common words.
     """
-    # Count the frequency of each word
 
     COMMON_WORDS = {
         "hora",
@@ -46,31 +62,26 @@ def identify_common_words(course_blocks, threshold: int = 10):
 
     combined_text = ""
     for block in course_blocks:
-        # Extract course title
+
         course_title_element = block.find("b", class_="card-title")
         if course_title_element:
             course_title = course_title_element.text.strip()
         else:
             course_title = ""
 
-        # Extract course description
         description_elements = block.find_all("p", class_="card-text")
         if description_elements:
             description = " ".join([p.text.strip() for p in description_elements])
         else:
             description = ""
 
-        # Combine title and description text
         combined_text += course_title + " " + description
 
-    # Find all words in the combined text
     words = word_pattern.findall(combined_text.lower())
     word_count = Counter(words)
 
-    # Identify common words based on threshold frequency
     common_words = [word for word, count in word_count.items() if count >= threshold]
 
-    # Add the preset common words
     common_words += COMMON_WORDS
     return common_words
 
@@ -87,48 +98,38 @@ def build_index(index: dict, soup, course_dict: dict):
         dict: The updated index dictionary.
     """
 
-    # Find all course blocks
     course_blocks = soup.find_all("div", class_="card-body")
 
-    # Identify common words from 'words'
     common_words = identify_common_words(course_blocks)
 
-    # Iterate over each course block
     for block in course_blocks:
-        # Implementing find_sequence to process sub-sequences
+
         sequences = util.find_sequence(block)
 
-        # Extract title
         course_title = util.extract_course_title(block)
         if course_title == "":
             continue
 
-        # Initialize combined text
         combined_text = course_title
-        # Extract description if there are no sequences
+
         if len(sequences) == 0:
             description = util.extract_course_description(block)
             combined_text += " " + description
 
-        # Find all words in the combined text
         words = word_pattern.findall(combined_text.lower())
-        # Filter out common words
+
         words = [word for word in words if word not in common_words]
 
-        # Get course id from the course dictionary file
         course_id = course_dict.get(course_title, "ID not found")
         if course_id != "ID not found":
             if course_id not in index:
                 index[course_id] = []
 
-            # Map each word to the course ID
             for word in words:
                 if word not in index[course_id]:
                     index[course_id].append(word)
 
-        # Iterate over each subsequences in the block
         for sequence in sequences:
-            # Extract title of subsequence
             course_title = util.extract_course_title(sequence)
             if course_title == "":
                 continue
@@ -138,7 +139,7 @@ def build_index(index: dict, soup, course_dict: dict):
                     continue
                 if course_id not in index:
                     index[course_id] = []
-            # Extract description of subsequence
+
             description = util.extract_course_description(sequence)
             if description == "":
                 continue
@@ -151,7 +152,7 @@ def build_index(index: dict, soup, course_dict: dict):
 
 
 def go(n: int, dictionary: str, output: str):
-    """Crawl the course catalog to create an index mapping words to course IDs
+    """Crawl the course catalog to create an index mapping courseIDs to words
     and generate a CSV file from the index.
 
     Args:
@@ -159,22 +160,22 @@ def go(n: int, dictionary: str, output: str):
         dictionary (str): The filename of the JSON dictionary containing course IDs.
         output (str): The filename of the output CSV file.
     """
-    # Read course ID dictionary from JSON file
+
     with open(dictionary, "r") as file:
         course_dict = json.load(file)
 
-    index = {}  # Course ID -> Words
+    index = {}
 
-    visited = set()
-    queue = Queue()
-    queue.put(START_URL)
+    visited_urls = set()
+    urls_to_visit = Queue()
+    urls_to_visit.put(START_URL)
 
-    while not queue.empty() and len(visited) < n:
-        current_url = queue.get()
-        if current_url in visited:
+    while not urls_to_visit.empty() and len(visited_urls) < n:
+        current_url = urls_to_visit.get()
+        if current_url in visited_urls:
             continue
-        visited.add(current_url)
-        # HTTP request to url
+        visited_urls.add(current_url)
+
         request = requests.get(current_url)
         if request.status_code == 200:
             text = request.text
@@ -182,20 +183,18 @@ def go(n: int, dictionary: str, output: str):
 
             for link in soup.find_all("a", href=True):
                 full_url = urljoin(current_url, link["href"])
-                if full_url not in visited:
+                if full_url not in visited_urls:
                     if util.is_url_ok_to_follow(full_url, DOMAIN):
-                        queue.put(full_url)
+                        urls_to_visit.put(full_url)
                     else:
-                        # If the URL is not suitable to follow based on the domain criteria,
-                        # convert any relative URLs to absolute URLs and enqueue them if possible
                         converted_url = util.convert_if_relative_url(
                             current_url, full_url
                         )
                         if converted_url:
-                            queue.put(converted_url)
+                            urls_to_visit.put(converted_url)
 
             index = build_index(index, soup, course_dict)
-    # Write index to a CSV file
+
     with open(output, "w", newline="", encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile, delimiter="|")
         csvwriter.writerow(["Course ID", "Word"])
@@ -205,10 +204,3 @@ def go(n: int, dictionary: str, output: str):
 
 
 go(5, "test.json", "test.csv")
-#### FALTA ESTO ............................
-# Una función útil, llamada util.find_sequence(tag), para trabajar con subsecuencias. Esta función
-# toma una etiqueta bs4 y comprueba las subsecuencias asociadas. Si existen subsecuencias, la
-# función devuelve una lista de los objetos de etiqueta div para la subsecuencia; de lo contrario,
-# devuelve una lista vacía.
-
-# Salida
