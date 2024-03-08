@@ -12,28 +12,63 @@ import util
 # Initial URL
 START_URL = "https://educacionvirtual.javeriana.edu.co/nuestros-programas-nuevo"
 DOMAIN = "educacionvirtual.javeriana.edu.co"
-
+COMMON_WORDS = {
+    "hora",
+    "horas",
+    "duración",
+    "precio",
+    "de",
+    "la",
+    "al",
+    "el",
+    "en",
+    "su",
+    "con",
+}
 
 # Regular expression to identify words
-word_pattern = re.compile(r"\b[A-Za-z][A-Za-z0-9_]*(?<![!:.])\b")
+word_pattern = re.compile(r"\b[A-Za-zÁ-Úá-ú][A-Za-z0-9Á-Úá-ú_]+(?<![!:.])\b")
 
 
-def identify_common_words(words: list, threshold: int = 10):
+def identify_common_words(course_blocks, threshold: int = 15):
     """Identify common words from the list of words.
 
     Args:
-        words (list): List of words.
+        course_blocks (list): List of BeautifulSoup elements representing course blocks.
         threshold (int): Threshold frequency for a word to be considered common.
 
     Returns:
         list: List of common words.
     """
     # Count the frequency of each word
+    combined_text = ""
+    for block in course_blocks:
+        # Extract course title
+        course_title_element = block.find("b", class_="card-title")
+        if course_title_element:
+            course_title = course_title_element.text.strip()
+        else:
+            course_title = ""
+
+        # Extract course description
+        description_elements = block.find_all("p", class_="card-text")
+        if description_elements:
+            description = " ".join([p.text.strip() for p in description_elements])
+        else:
+            description = ""
+
+        # Combine title and description text
+        combined_text += course_title + " " + description
+
+    # Find all words in the combined text
+    words = word_pattern.findall(combined_text.lower())
     word_count = Counter(words)
 
     # Identify common words based on threshold frequency
     common_words = [word for word, count in word_count.items() if count >= threshold]
 
+    # Add the preset common words
+    common_words += COMMON_WORDS
     return common_words
 
 
@@ -53,7 +88,9 @@ def build_index(index: dict, soup, course_dict: dict):
     course_blocks = soup.find_all("div", class_="card-body")
 
     # List of common words that do not provide useful information
-    common_words = []
+
+    # Identify common words from 'words'
+    common_words = identify_common_words(course_blocks)
 
     for block in course_blocks:
         # Extract title and descriptions
@@ -75,18 +112,18 @@ def build_index(index: dict, soup, course_dict: dict):
         # Find all words in the combined text
         words = word_pattern.findall(combined_text.lower())
 
-        # Identify common words from 'words'
-        common_words = identify_common_words(words)
-
         # Filter out common words
         words = [word for word in words if word not in common_words]
 
+        # Get course id from the course dictionary file
+        course_id = course_dict.get(course_title, "Not found")
+        if course_id not in index:
+            index[course_id] = []
+
         # Map each word to the course ID
         for word in words:
-            if word not in index:
-                index[word] = []
-            # Add course ID to word
-            index[word].append(course_dict.get(course_title, "Not found"))
+            if word not in index[course_id]:
+                index[course_id].append(word)
 
     return index
 
@@ -104,7 +141,7 @@ def go(n: int, dictionary: str, output: str):
     with open(dictionary, "r") as file:
         course_dict = json.load(file)
 
-    index = {}  # Word -> List of course IDs
+    index = {}  # Course ID -> Words
 
     visited = set()
     queue = Queue()
@@ -139,9 +176,16 @@ def go(n: int, dictionary: str, output: str):
     # Write index to a CSV file
     with open(output, "w", newline="", encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(["Word", "Course IDs"])
+        csvwriter.writerow(["Course ID", "Words"])
         for word, ids in index.items():
             csvwriter.writerow([word, ", ".join(map(str, ids))])
 
 
-go(10, "test.json", "test.csv")
+go(5, "test.json", "test.csv")
+#### FALTA ESTO ............................
+# Una función útil, llamada util.find_sequence(tag), para trabajar con subsecuencias. Esta función
+# toma una etiqueta bs4 y comprueba las subsecuencias asociadas. Si existen subsecuencias, la
+# función devuelve una lista de los objetos de etiqueta div para la subsecuencia; de lo contrario,
+# devuelve una lista vacía.
+
+# Salida
