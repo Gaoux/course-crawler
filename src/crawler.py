@@ -25,7 +25,7 @@ import requests
 import json
 import csv
 import re
-import src.util as util
+import util as util
 
 
 START_URL = "https://educacionvirtual.javeriana.edu.co/nuestros-programas-nuevo"
@@ -61,15 +61,15 @@ def identify_common_words(course_blocks, threshold: int = 10):
     }
 
     combined_text = ""
-    for block in course_blocks:
+    for card in course_blocks:
 
-        course_title_element = block.find("b", class_="card-title")
+        course_title_element = card.find("b", class_="card-title")
         if course_title_element:
             course_title = course_title_element.text.strip()
         else:
             course_title = ""
 
-        description_elements = block.find_all("p", class_="card-text")
+        description_elements = card.find_all("p", class_="card-text")
         if description_elements:
             description = " ".join([p.text.strip() for p in description_elements])
         else:
@@ -86,7 +86,7 @@ def identify_common_words(course_blocks, threshold: int = 10):
     return common_words
 
 
-def build_index(index: dict, soup, course_dict: dict):
+def build_index(index: dict, course_urls: dict, request, course_dict: dict):
     """Builds an index mapping words to a list of course IDs.
 
     Args:
@@ -98,22 +98,23 @@ def build_index(index: dict, soup, course_dict: dict):
         dict: The updated index dictionary.
     """
 
-    course_blocks = soup.find_all("div", class_="card-body")
+    soup = BeautifulSoup(request.text, "html5lib")
+    course_cards = soup.find_all("div", class_="card-body")
 
-    common_words = identify_common_words(course_blocks)
+    common_words = identify_common_words(course_cards)
 
-    for block in course_blocks:
+    for card in course_cards:
 
-        sequences = util.find_sequence(block)
+        sequences = util.find_sequence(card)
 
-        course_title = util.extract_course_title(block)
+        course_title = util.extract_course_title(card)
         if course_title == "":
             continue
 
         combined_text = course_title
 
         if len(sequences) == 0:
-            description = util.extract_course_description(block)
+            description = util.extract_course_description(card)
             combined_text += " " + description
 
         words = word_pattern.findall(combined_text.lower())
@@ -122,6 +123,10 @@ def build_index(index: dict, soup, course_dict: dict):
 
         course_id = course_dict.get(course_title, "ID not found")
         if course_id != "ID not found":
+            if course_id not in course_urls:
+                current_url = request.url
+                card_a_element = card.find("a", href=True)
+                course_urls[course_id] = urljoin(current_url, card_a_element["href"])
             if course_id not in index:
                 index[course_id] = []
 
@@ -148,12 +153,13 @@ def build_index(index: dict, soup, course_dict: dict):
             for word in sequence_words:
                 if word not in index[course_id]:
                     index[course_id].append(word)
-    return index
+    return index, course_urls
 
 
 def go(n: int, dictionary: str, output: str):
-    """Crawl the course catalog to create an index mapping courseIDs to words
-    and generate a CSV file from the index.
+    """Crawl the course catalog to create an index mapping courseIDs to words and an
+    course_urls mapping to courseIDs to URL. Then generates a CSV file from the
+    index and a CSV file from the course_urls.
 
     Args:
         n (int): The number of pages to crawl.
@@ -165,6 +171,7 @@ def go(n: int, dictionary: str, output: str):
         course_dict = json.load(file)
 
     index = {}
+    course_urls = {}
 
     visited_urls = set()
     urls_to_visit = Queue()
@@ -193,7 +200,13 @@ def go(n: int, dictionary: str, output: str):
                         if converted_url:
                             urls_to_visit.put(converted_url)
 
-            index = build_index(index, soup, course_dict)
+            index, course_urls = build_index(index, course_urls, request, course_dict)
+
+    with open("data/course_urls.csv", "w", newline="", encoding="utf-8") as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(["Course ID", "URL"])
+        for id, url in course_urls.items():
+            csvwriter.writerow([id, url])
 
     with open(output, "w", newline="", encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile, delimiter="|")

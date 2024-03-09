@@ -30,6 +30,7 @@ def compare_courses(course1: str, course2: str, index: dict):
     Returns:
         float: Similarity score between 0 and 1.
     """
+
     words1 = set(index.get(course1, []))
     words2 = set(index.get(course2, []))
 
