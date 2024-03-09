@@ -86,6 +86,8 @@ This formula counts the number of shared keywords between the user's interests a
 
 Using the same metric for comparing courses and user interests may lead to certain disadvantages. One such disadvantage is that the relevance of a course to a user's interests may not solely depend on the overlap of words between the course content and the user's interests. Other factors such as course level, topic coverage, and user preferences may also influence the relevance.
 
+One way to measure system performance is by evaluating its effectiveness in recommending relevant courses based on user interests. Testing can be performed on test data sets to evaluate performance under simulated conditions of real use.
+
 ## Conclusions
 
 Through the development of this project, the following objectives have been achieved:
@@ -94,4 +96,4 @@ Through the development of this project, the following objectives have been achi
 
 - **Construction of a Course Search Engine**: The project includes modules such as crawler.py, compare.py, and search.py, which collectively form a functional course search engine. This engine enables users to find relevant courses based on their interests by comparing keywords with the content of course descriptions and titles.
 
-In summary, this project has successfully addressed the objectives outlined, providing practical experience in building search engines, web crawling, and data analysis within the context of educational course catalogs. These skills are valuable for various applications, including information retrieval, e-commerce, and academic research.
+In summary, this project has successfully addressed the objectives outlined, providing practical experience in building search engines, web crawling, and data analysis within the context of educational course catalogs. These skills are valuable for various applications, including information retrieval and data analysis.
